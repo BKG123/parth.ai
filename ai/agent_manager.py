@@ -132,4 +132,5 @@ if __name__ == "__main__":
     import asyncio
 
     agent_manager = AgentManager(user_id=1)
-    asyncio.run(agent_manager.get_response("Hello, how are you?"))
+    response = asyncio.run(agent_manager.get_response("Hello, how are you?"))
+    print(response)
