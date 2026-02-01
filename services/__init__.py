@@ -1,4 +1,4 @@
-from services.services import BaseCRUD
+from services.services import BaseCRUD, SkillCRUD
 from models.models import (
     User,
     UserPreference,
@@ -16,12 +16,13 @@ user_preference_crud = BaseCRUD(UserPreference)
 goal_crud = BaseCRUD(Goal)
 goal_data_crud = BaseCRUD(GoalData)
 scheduled_message_crud = BaseCRUD(ScheduledMessage)
-skill_crud = BaseCRUD(Skill)
+skill_crud = SkillCRUD(Skill)
 goal_skill_crud = BaseCRUD(GoalSkill)
 message_crud = BaseCRUD(Message)
 
 __all__ = [
     "BaseCRUD",
+    "SkillCRUD",
     "user_crud",
     "user_preference_crud",
     "goal_crud",

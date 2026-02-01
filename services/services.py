@@ -1,7 +1,7 @@
 from typing import Generic, TypeVar, Type, Optional, List, Dict, Any
-from sqlalchemy import select, update, delete, func
+from sqlalchemy import select, update, delete, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
-from models.models import Base
+from models.models import Base, Skill
 from database import AsyncSessionLocal
 
 ModelType = TypeVar("ModelType", bound=Base)
@@ -101,6 +101,31 @@ class BaseCRUD(Generic[ModelType]):
         query = query.limit(1)
         result = await db.execute(query)
         return result.scalar_one_or_none() is not None
+
+
+class SkillCRUD(BaseCRUD[Skill]):
+    """Extended CRUD operations for Skills with search functionality"""
+
+    async def search(
+        self, db: AsyncSession, query: str, limit: int = 10
+    ) -> List[Skill]:
+        """Search skills by name, title, or description using text matching"""
+        search_pattern = f"%{query}%"
+        stmt = (
+            select(self.model)
+            .where(
+                or_(
+                    self.model.name.ilike(search_pattern),
+                    self.model.title.ilike(search_pattern),
+                    self.model.description.ilike(search_pattern),
+                )
+            )
+            .where(self.model.is_active)
+            .order_by(self.model.usage_count.desc())
+            .limit(limit)
+        )
+        result = await db.execute(stmt)
+        return list(result.scalars().all())
 
 
 if __name__ == "__main__":
