@@ -9,9 +9,10 @@ from sqlalchemy import (
     DateTime,
     Enum,
     ForeignKey,
+    Computed,
 )
-from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import declarative_base, relationship, declared_attr
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
+from sqlalchemy.orm import declarative_base, relationship
 import enum
 
 Base = declarative_base()
@@ -127,6 +128,14 @@ class Skill(BaseModel):
     created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     usage_count = Column(Integer, nullable=False, default=0)
     is_active = Column(Boolean, nullable=False, default=True)
+
+    # Full-text search vector (computed column for PostgreSQL)
+    search_vector = Column(
+        TSVECTOR,
+        Computed(
+            "to_tsvector('english', coalesce(name, '') || ' ' || coalesce(title, '') || ' ' || coalesce(description, ''))"
+        ),
+    )
 
     # Relationships
     creator = relationship("User", back_populates="skills")

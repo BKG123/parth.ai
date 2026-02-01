@@ -109,23 +109,56 @@ class SkillCRUD(BaseCRUD[Skill]):
     async def search(
         self, db: AsyncSession, query: str, limit: int = 10
     ) -> List[Skill]:
-        """Search skills by name, title, or description using text matching"""
-        search_pattern = f"%{query}%"
-        stmt = (
+        """
+        Search skills using PostgreSQL full-text search with ILIKE fallback.
+
+        First attempts full-text search which handles:
+        - Word stemming (e.g., "running" matches "run")
+        - Word order independence
+        - Common word filtering
+
+        Falls back to ILIKE pattern matching if no results found.
+        """
+        # Try full-text search first
+        fts_stmt = (
             select(self.model)
+            .where(self.model.is_active)
             .where(
-                or_(
-                    self.model.name.ilike(search_pattern),
-                    self.model.title.ilike(search_pattern),
-                    self.model.description.ilike(search_pattern),
+                self.model.search_vector.op("@@")(
+                    func.plainto_tsquery("english", query)
                 )
             )
-            .where(self.model.is_active)
-            .order_by(self.model.usage_count.desc())
+            .order_by(
+                func.ts_rank(
+                    self.model.search_vector, func.plainto_tsquery("english", query)
+                ).desc(),
+                self.model.usage_count.desc(),
+            )
             .limit(limit)
         )
-        result = await db.execute(stmt)
-        return list(result.scalars().all())
+        result = await db.execute(fts_stmt)
+        skills = list(result.scalars().all())
+
+        # If no results, fall back to ILIKE pattern matching
+        if not skills:
+            search_pattern = f"%{query}%"
+            ilike_stmt = (
+                select(self.model)
+                .where(self.model.is_active)
+                .where(
+                    or_(
+                        self.model.name.ilike(search_pattern),
+                        self.model.title.ilike(search_pattern),
+                        self.model.description.ilike(search_pattern),
+                    )
+                )
+                .order_by(self.model.usage_count.desc())
+                .limit(limit)
+            )
+            result = await db.execute(ilike_stmt)
+            skills = list(result.scalars().all())
+
+        return skills
 
 
 if __name__ == "__main__":
