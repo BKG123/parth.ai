@@ -46,6 +46,11 @@ class SkillCreatedBy(enum.Enum):
     agent = "agent"
 
 
+class MessageRole(enum.Enum):
+    user = "user"
+    assistant = "assistant"
+
+
 class User(BaseModel):
     __tablename__ = "users"
 
@@ -58,6 +63,7 @@ class User(BaseModel):
     goals = relationship("Goal", back_populates="user")
     scheduled_messages = relationship("ScheduledMessage", back_populates="user")
     skills = relationship("Skill", back_populates="creator")
+    messages = relationship("Message", back_populates="user")
 
 
 class UserPreference(BaseModel):
@@ -82,6 +88,7 @@ class Goal(BaseModel):
     goal_data = relationship("GoalData", back_populates="goal", uselist=False)
     scheduled_messages = relationship("ScheduledMessage", back_populates="goal")
     goal_skills = relationship("GoalSkill", back_populates="goal")
+    messages = relationship("Message", back_populates="goal")
 
 
 class GoalData(BaseModel):
@@ -136,3 +143,17 @@ class GoalSkill(BaseModel):
     # Relationships
     goal = relationship("Goal", back_populates="goal_skills")
     skill = relationship("Skill", back_populates="goal_skills")
+
+
+class Message(BaseModel):
+    __tablename__ = "messages"
+
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    goal_id = Column(Integer, ForeignKey("goals.id"), nullable=True, index=True)
+    role = Column(Enum(MessageRole), nullable=False)
+    content = Column(Text, nullable=False)
+    telegram_message_id = Column(BigInteger, nullable=True)
+
+    # Relationships
+    user = relationship("User", back_populates="messages")
+    goal = relationship("Goal", back_populates="messages")
