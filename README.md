@@ -19,7 +19,23 @@ Like Krishna guiding Arjuna, Parth doesn't make decisions for you - it helps you
 
 ## Access
 
+### Telegram Bot
 Start chatting via Telegram: `@parth_ai_bot` *(coming soon)*
+
+### Web Interface (Testing)
+For development and testing, use the Streamlit interface:
+
+```bash
+# Quick start
+./run_streamlit.sh
+
+# Or manually
+source .venv/bin/activate
+streamlit run app_streamlit.py
+```
+
+Then open http://localhost:8501 in your browser.
+
 
 ---
 
