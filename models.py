@@ -30,6 +30,11 @@ class MessageStatus(enum.Enum):
     cancelled = "cancelled"
 
 
+class SkillCreatedBy(enum.Enum):
+    system = "system"
+    agent = "agent"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -43,6 +48,7 @@ class User(Base):
     preferences = relationship("UserPreference", back_populates="user", uselist=False)
     goals = relationship("Goal", back_populates="user")
     scheduled_messages = relationship("ScheduledMessage", back_populates="user")
+    skills = relationship("Skill", back_populates="creator")
 
 
 class UserPreference(Base):
@@ -75,6 +81,7 @@ class Goal(Base):
     user = relationship("User", back_populates="goals")
     goal_data = relationship("GoalData", back_populates="goal", uselist=False)
     scheduled_messages = relationship("ScheduledMessage", back_populates="goal")
+    goal_skills = relationship("GoalSkill", back_populates="goal")
 
 
 class GoalData(Base):
@@ -105,3 +112,40 @@ class ScheduledMessage(Base):
     # Relationships
     user = relationship("User", back_populates="scheduled_messages")
     goal = relationship("Goal", back_populates="scheduled_messages")
+
+
+class Skill(Base):
+    __tablename__ = "skills"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False, unique=True)
+    title = Column(String, nullable=False)
+    description = Column(Text)
+    skill_prompt = Column(Text, nullable=False)
+    metadata = Column(JSONB)
+    created_by_type = Column(Enum(SkillCreatedBy), nullable=False)
+    created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    usage_count = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    # Relationships
+    creator = relationship("User", back_populates="skills")
+    goal_skills = relationship("GoalSkill", back_populates="skill")
+
+
+class GoalSkill(Base):
+    __tablename__ = "goal_skills"
+
+    id = Column(Integer, primary_key=True)
+    goal_id = Column(Integer, ForeignKey("goals.id"), nullable=False, index=True)
+    skill_id = Column(Integer, ForeignKey("skills.id"), nullable=False, index=True)
+    customizations = Column(JSONB)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    # Relationships
+    goal = relationship("Goal", back_populates="goal_skills")
+    skill = relationship("Skill", back_populates="goal_skills")
