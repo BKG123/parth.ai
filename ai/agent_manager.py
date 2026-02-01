@@ -51,13 +51,13 @@ class AgentManager:
         )
 
     async def stream_response(
-        self, prompt: str, account_id: str, history: list[dict] = None
+        self, prompt: str, user_id: str, history: list[dict] = None
     ) -> AsyncIterator[dict]:
         """Stream agent response with events including tool calls.
 
         Args:
             prompt: User input prompt
-            account_id: User's account identifier
+            user_id: User's account identifier
             history: List of previous messages [{"role": "user", "content": "..."}, ...]
 
         Yields:
@@ -70,8 +70,8 @@ class AgentManager:
                 messages.append({"role": msg["role"], "content": msg["content"]})
         messages.append({"role": "user", "content": prompt})
 
-        # Create context with account_id
-        context = AgentContext(account_id=account_id)
+        # Create context with user_id
+        context = AgentContext(user_id=user_id)
         result = Runner.run_streamed(self.agent, messages, context=context)
         async for event in result.stream_events():
             # Handle text deltas
@@ -93,12 +93,14 @@ class AgentManager:
             elif isinstance(event, RunItemStreamEvent) and event.name == "tool_output":
                 yield {"type": "tool_output", "content": "completed"}
 
-    async def get_response(self, prompt: str, account_id: str, history: list[dict] = None) -> str:
+    async def get_response(
+        self, prompt: str, user_id: str, history: list[dict] = None
+    ) -> str:
         """Get complete agent response (non-streaming).
 
         Args:
             prompt: User input prompt
-            account_id: User's account identifier
+            user_id: User's account identifier
             history: List of previous messages [{"role": "user", "content": "..."}, ...]
 
         Returns:
@@ -111,8 +113,8 @@ class AgentManager:
                 messages.append({"role": msg["role"], "content": msg["content"]})
         messages.append({"role": "user", "content": prompt})
 
-        # Create context with account_id
-        context = AgentContext(account_id=account_id)
+        # Create context with user_id
+        context = AgentContext(user_id=user_id)
         result = await Runner.run(self.agent, messages, context=context)
         return result.final_output
 
