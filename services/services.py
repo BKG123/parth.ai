@@ -1,7 +1,7 @@
 from typing import Generic, TypeVar, Type, Optional, List, Dict, Any
 from sqlalchemy import select, update, delete, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
-from models.models import Base, Skill
+from models.models import Base, Skill, Message, User
 from database import AsyncSessionLocal
 
 ModelType = TypeVar("ModelType", bound=Base)
@@ -159,6 +159,36 @@ class SkillCRUD(BaseCRUD[Skill]):
             skills = list(result.scalars().all())
 
         return skills
+
+
+class MessageCRUD(BaseCRUD[Message]):
+    """Extended CRUD operations for Messages"""
+
+    async def get_by_user(
+        self, db: AsyncSession, user_id: int, limit: int = 100
+    ) -> List[Message]:
+        """Get messages for a specific user"""
+        query = (
+            select(self.model)
+            .where(self.model.user_id == user_id)
+            .order_by(self.model.created_at.desc())
+            .limit(limit)
+        )
+        result = await db.execute(query)
+        return list(result.scalars().all())
+
+
+class UserCRUD(BaseCRUD[User]):
+    """Extended CRUD operations for Users"""
+
+    async def get_or_create_by_telegram_id(
+        self, db: AsyncSession, telegram_id: int
+    ) -> User:
+        """Get or create a user by telegram_id"""
+        user = await self.get_by(db, telegram_id=telegram_id)
+        if not user:
+            user = await self.create(db, telegram_id=telegram_id)
+        return user
 
 
 if __name__ == "__main__":

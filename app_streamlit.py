@@ -3,6 +3,9 @@
 import asyncio
 import streamlit as st
 from ai.agent_manager import AgentManager
+from database import AsyncSessionLocal
+from services.services import MessageCRUD, UserCRUD
+from models.models import MessageRole
 
 # Page config
 st.set_page_config(page_title="Parth AI Assistant", page_icon="🪶", layout="wide")
@@ -49,6 +52,21 @@ if "agent_manager" not in st.session_state:
         model="gpt-5-mini",
     )
 
+if "message_crud" not in st.session_state:
+    st.session_state.message_crud = MessageCRUD(model=__import__('models.models', fromlist=['Message']).Message)
+
+if "user_crud" not in st.session_state:
+    st.session_state.user_crud = UserCRUD(model=__import__('models.models', fromlist=['User']).User)
+
+if "db_user_id" not in st.session_state:
+    # Get or create user in database (telegram_id=1 for Streamlit testing)
+    async def init_user():
+        async with AsyncSessionLocal() as db:
+            user = await st.session_state.user_crud.get_or_create_by_telegram_id(db, telegram_id=1)
+            return user.id
+    
+    st.session_state.db_user_id = asyncio.run(init_user())
+
 # Header
 st.title("🪶 Parth AI Assistant")
 st.caption("Your personal AI guide for goals and growth")
@@ -64,6 +82,18 @@ if prompt := st.chat_input("Ask me anything..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
+    
+    # Save user message to database
+    async def save_user_message():
+        async with AsyncSessionLocal() as db:
+            await st.session_state.message_crud.create(
+                db,
+                user_id=st.session_state.db_user_id,
+                role=MessageRole.user,
+                content=prompt,
+            )
+    
+    asyncio.run(save_user_message())
 
     # Get agent response with streaming
     with st.chat_message("assistant"):
@@ -135,6 +165,18 @@ if prompt := st.chat_input("Ask me anything..."):
         try:
             response = asyncio.run(stream_and_display())
             st.session_state.messages.append({"role": "assistant", "content": response})
+            
+            # Save assistant message to database
+            async def save_assistant_message():
+                async with AsyncSessionLocal() as db:
+                    await st.session_state.message_crud.create(
+                        db,
+                        user_id=st.session_state.db_user_id,
+                        role=MessageRole.assistant,
+                        content=response,
+                    )
+            
+            asyncio.run(save_assistant_message())
         except Exception as e:
             error_msg = f"Error: {str(e)}"
             message_placeholder.error(error_msg)
@@ -155,7 +197,7 @@ with st.sidebar:
     st.subheader("Agent Configuration")
     st.text(f"Model: {st.session_state.agent_manager.model_name}")
     st.text(f"Name: {st.session_state.agent_manager.agent_name}")
-    st.text(f"User ID: 1")
+    st.text(f"User ID: {st.session_state.db_user_id}")
 
     st.divider()
 
