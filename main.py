@@ -1,5 +1,12 @@
+"""Parth.ai - Main entry point."""
+
+import subprocess
+import sys
+
+
 def main():
-    print("Hello from parth-ai!")
+    """Launch the Streamlit app."""
+    subprocess.run([sys.executable, "-m", "streamlit", "run", "app_streamlit.py"])
 
 
 if __name__ == "__main__":
