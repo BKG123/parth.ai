@@ -32,6 +32,25 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+TOOLS_ALLOWED_LIST = [
+    update_user_preferences,
+    list_goals,
+    get_goal,
+    get_goal_data,
+    update_goal_data,
+    append_goal_event,
+    send_message,
+    get_recent_messages,
+    create_goal,
+    update_goal_status,
+    create_skill,
+    update_skill,
+    link_goal_to_skill,
+    get_goal_skill,
+    search_skills,
+    get_skill,
+]
+
 
 class AgentManager:
     """Manages agent creation and interaction."""
@@ -48,16 +67,7 @@ class AgentManager:
             name=name,
             instructions=instructions,
             model=model,
-            tools=[
-                update_user_preferences,
-                list_goals,
-                get_goal,
-                get_goal_data,
-                update_goal_data,
-                append_goal_event,
-                send_message,
-                get_recent_messages,
-            ],
+            tools=TOOLS_ALLOWED_LIST,
         )
 
     async def stream_response(
