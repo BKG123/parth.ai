@@ -30,10 +30,12 @@ class AgentManager:
 
     def __init__(
         self,
+        user_id: str,
         name: str = "Parth AI",
         instructions: str = PARTH_AGENT_PROMPT,
         model: str = "gpt-5-mini",
-    ):
+    ) -> None:
+        self.user_id = user_id
         self.agent = Agent(
             name=name,
             instructions=instructions,
@@ -51,13 +53,12 @@ class AgentManager:
         )
 
     async def stream_response(
-        self, prompt: str, user_id: str, history: list[dict] = None
+        self, prompt: str, history: list[dict] = None
     ) -> AsyncIterator[dict]:
         """Stream agent response with events including tool calls.
 
         Args:
             prompt: User input prompt
-            user_id: User's account identifier
             history: List of previous messages [{"role": "user", "content": "..."}, ...]
 
         Yields:
@@ -71,7 +72,7 @@ class AgentManager:
         messages.append({"role": "user", "content": prompt})
 
         # Create context with user_id
-        context = AgentContext(user_id=user_id)
+        context = AgentContext(user_id=self.user_id)
         result = Runner.run_streamed(self.agent, messages, context=context)
         async for event in result.stream_events():
             # Handle text deltas
@@ -93,9 +94,7 @@ class AgentManager:
             elif isinstance(event, RunItemStreamEvent) and event.name == "tool_output":
                 yield {"type": "tool_output", "content": "completed"}
 
-    async def get_response(
-        self, prompt: str, user_id: str, history: list[dict] = None
-    ) -> str:
+    async def get_response(self, prompt: str, history: list[dict] = None) -> str:
         """Get complete agent response (non-streaming).
 
         Args:
@@ -114,7 +113,7 @@ class AgentManager:
         messages.append({"role": "user", "content": prompt})
 
         # Create context with user_id
-        context = AgentContext(user_id=user_id)
+        context = AgentContext(user_id=self.user_id)
         result = await Runner.run(self.agent, messages, context=context)
         return result.final_output
 
@@ -127,3 +126,10 @@ class AgentManager:
     def agent_name(self) -> str:
         """Get the agent name."""
         return self.agent.name
+
+
+if __name__ == "__main__":
+    import asyncio
+
+    agent_manager = AgentManager(user_id=1)
+    asyncio.run(agent_manager.get_response("Hello, how are you?"))

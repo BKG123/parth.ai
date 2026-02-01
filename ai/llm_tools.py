@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
+from pydantic import BaseModel, Field
 from agents import function_tool, RunContextWrapper
 from database import AsyncSessionLocal
 from services import (
@@ -13,6 +15,14 @@ from services import (
 from models.models import MessageRole, MessageStatus
 
 
+class JsonData(BaseModel):
+    """Flexible JSON data container."""
+    class Config:
+        extra = "forbid"  # This prevents additionalProperties
+    
+    data: str = Field(description="JSON string containing the data")
+
+
 @dataclass
 class AgentContext:
     """Context passed to all agent tools containing user-specific data."""
@@ -23,10 +33,12 @@ class AgentContext:
 @function_tool
 # User context (read/write)
 async def update_user_preferences(
-    wrapper: RunContextWrapper[AgentContext], data: dict
+    wrapper: RunContextWrapper[AgentContext], data_json: str
 ) -> None:
-    """Update user preferences with the provided data."""
+    """Update user preferences with the provided data as a JSON string."""
+    import json
     user_id = int(wrapper.context.user_id)
+    data = json.loads(data_json)
     
     async with AsyncSessionLocal() as db:
         # Get user to verify they exist
@@ -48,13 +60,14 @@ async def update_user_preferences(
 
 @function_tool
 # Goals metadata (read-only)
-async def list_goals(wrapper: RunContextWrapper[AgentContext]) -> list[dict]:
-    """List all goals for the current user."""
+async def list_goals(wrapper: RunContextWrapper[AgentContext]) -> str:
+    """List all goals for the current user. Returns JSON string."""
+    import json
     user_id = int(wrapper.context.user_id)
     
     async with AsyncSessionLocal() as db:
         goals = await goal_crud.get_all(db, user_id=user_id)
-        return [
+        result = [
             {
                 "id": goal.id,
                 "title": goal.title,
@@ -64,11 +77,13 @@ async def list_goals(wrapper: RunContextWrapper[AgentContext]) -> list[dict]:
             }
             for goal in goals
         ]
+        return json.dumps(result)
 
 
 @function_tool
-async def get_goal(wrapper: RunContextWrapper[AgentContext], goal_id: int) -> dict:
-    """Get a specific goal by ID."""
+async def get_goal(wrapper: RunContextWrapper[AgentContext], goal_id: int) -> str:
+    """Get a specific goal by ID. Returns JSON string."""
+    import json
     user_id = int(wrapper.context.user_id)
     
     async with AsyncSessionLocal() as db:
@@ -80,7 +95,7 @@ async def get_goal(wrapper: RunContextWrapper[AgentContext], goal_id: int) -> di
         if goal.user_id != user_id:
             raise ValueError(f"Goal {goal_id} does not belong to user {user_id}")
         
-        return {
+        result = {
             "id": goal.id,
             "title": goal.title,
             "status": goal.status.value,
@@ -88,12 +103,14 @@ async def get_goal(wrapper: RunContextWrapper[AgentContext], goal_id: int) -> di
             "updated_at": goal.updated_at.isoformat(),
             "meta_data": goal.meta_data,
         }
+        return json.dumps(result)
 
 
 @function_tool
 # Goal data (read/write, full autonomy)
-async def get_goal_data(wrapper: RunContextWrapper[AgentContext], goal_id: int) -> dict:
-    """Get the agent data for a specific goal."""
+async def get_goal_data(wrapper: RunContextWrapper[AgentContext], goal_id: int) -> str:
+    """Get the agent data for a specific goal. Returns JSON string."""
+    import json
     user_id = int(wrapper.context.user_id)
     
     async with AsyncSessionLocal() as db:
@@ -107,17 +124,19 @@ async def get_goal_data(wrapper: RunContextWrapper[AgentContext], goal_id: int) 
         # Get goal data
         goal_data = await goal_data_crud.get_by(db, goal_id=goal_id)
         if not goal_data:
-            return {}
+            return json.dumps({})
         
-        return goal_data.agent_data or {}
+        return json.dumps(goal_data.agent_data or {})
 
 
 @function_tool
 async def update_goal_data(
-    wrapper: RunContextWrapper[AgentContext], goal_id: int, data: dict
+    wrapper: RunContextWrapper[AgentContext], goal_id: int, data_json: str
 ) -> None:
-    """Update the agent data for a specific goal."""
+    """Update the agent data for a specific goal. Provide data as JSON string."""
+    import json
     user_id = int(wrapper.context.user_id)
+    data = json.loads(data_json)
     
     async with AsyncSessionLocal() as db:
         # Verify goal belongs to user
@@ -141,10 +160,12 @@ async def update_goal_data(
 
 @function_tool
 async def append_goal_event(
-    wrapper: RunContextWrapper[AgentContext], goal_id: int, event: dict
+    wrapper: RunContextWrapper[AgentContext], goal_id: int, event_json: str
 ) -> None:
-    """Append an event to the goal's event log in agent_data."""
+    """Append an event to the goal's event log in agent_data. Provide event as JSON string."""
+    import json
     user_id = int(wrapper.context.user_id)
+    event = json.loads(event_json)
     
     async with AsyncSessionLocal() as db:
         # Verify goal belongs to user
@@ -179,7 +200,7 @@ async def append_goal_event(
 async def send_message(
     wrapper: RunContextWrapper[AgentContext],
     content: str,
-    goal_id: int = None,
+    goal_id: int | None = None,
     is_scheduled: bool = False,
 ) -> None:
     """Send a message to the user or schedule it for later."""
@@ -210,9 +231,10 @@ async def send_message(
 
 @function_tool
 async def get_recent_messages(
-    wrapper: RunContextWrapper[AgentContext], limit: int = 20, goal_id: int = None
-) -> list[dict]:
-    """Get recent messages for the user, optionally filtered by goal."""
+    wrapper: RunContextWrapper[AgentContext], limit: int = 20, goal_id: int | None = None
+) -> str:
+    """Get recent messages for the user, optionally filtered by goal. Returns JSON string."""
+    import json
     user_id = int(wrapper.context.user_id)
     
     async with AsyncSessionLocal() as db:
@@ -222,7 +244,7 @@ async def get_recent_messages(
         
         messages = await message_crud.get_all(db, limit=limit, **filters)
         
-        return [
+        result = [
             {
                 "role": msg.role.value,
                 "content": msg.content,
@@ -231,3 +253,4 @@ async def get_recent_messages(
             }
             for msg in reversed(messages)  # Most recent first
         ]
+        return json.dumps(result)
