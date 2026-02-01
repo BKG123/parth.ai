@@ -2,6 +2,7 @@ from typing import Generic, TypeVar, Type, Optional, List, Dict, Any
 from sqlalchemy import select, update, delete, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from models.models import Base
+from database import AsyncSessionLocal
 
 ModelType = TypeVar("ModelType", bound=Base)
 
@@ -100,3 +101,19 @@ class BaseCRUD(Generic[ModelType]):
         query = query.limit(1)
         result = await db.execute(query)
         return result.scalar_one_or_none() is not None
+
+
+if __name__ == "__main__":
+    import asyncio
+    from models.models import User
+
+    # create a new user
+    user = User(telegram_id=1234567890)
+    user_crud = BaseCRUD(User)
+
+    async def main():
+        async with AsyncSessionLocal() as db:
+            user = await user_crud.create(db, telegram_id=1234567890)
+            print(f"User created with ID: {user.id}")
+
+    asyncio.run(main())
