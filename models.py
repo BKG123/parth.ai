@@ -11,10 +11,21 @@ from sqlalchemy import (
     ForeignKey,
 )
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import declarative_base, relationship
+from sqlalchemy.orm import declarative_base, relationship, declared_attr
 import enum
 
 Base = declarative_base()
+
+
+class BaseModel(Base):
+    __abstract__ = True
+
+    id = Column(Integer, primary_key=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+    meta_data = Column(JSONB)
 
 
 class GoalStatus(enum.Enum):
@@ -35,12 +46,10 @@ class SkillCreatedBy(enum.Enum):
     agent = "agent"
 
 
-class User(Base):
+class User(BaseModel):
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True)
     telegram_id = Column(BigInteger, unique=True, nullable=False, index=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     timezone = Column(String)
     is_active = Column(Boolean, nullable=False, default=True)
 
@@ -51,31 +60,22 @@ class User(Base):
     skills = relationship("Skill", back_populates="creator")
 
 
-class UserPreference(Base):
+class UserPreference(BaseModel):
     __tablename__ = "user_preferences"
 
-    id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
     agent_data = Column(JSONB)
-    updated_at = Column(
-        DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
-    )
 
     # Relationships
     user = relationship("User", back_populates="preferences")
 
 
-class Goal(Base):
+class Goal(BaseModel):
     __tablename__ = "goals"
 
-    id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     title = Column(Text, nullable=False)
     status = Column(Enum(GoalStatus), nullable=False, default=GoalStatus.active)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column(
-        DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
-    )
 
     # Relationships
     user = relationship("User", back_populates="goals")
@@ -84,67 +84,54 @@ class Goal(Base):
     goal_skills = relationship("GoalSkill", back_populates="goal")
 
 
-class GoalData(Base):
+class GoalData(BaseModel):
     __tablename__ = "goal_data"
 
-    id = Column(Integer, primary_key=True)
     goal_id = Column(Integer, ForeignKey("goals.id"), unique=True, nullable=False)
     agent_data = Column(JSONB)
-    updated_at = Column(
-        DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
-    )
 
     # Relationships
     goal = relationship("Goal", back_populates="goal_data")
 
 
-class ScheduledMessage(Base):
+class ScheduledMessage(BaseModel):
     __tablename__ = "scheduled_messages"
 
-    id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     goal_id = Column(Integer, ForeignKey("goals.id"), nullable=True)
     scheduled_for = Column(DateTime, nullable=False)
     message_content = Column(Text, nullable=False)
     status = Column(Enum(MessageStatus), nullable=False, default=MessageStatus.pending)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
     # Relationships
     user = relationship("User", back_populates="scheduled_messages")
     goal = relationship("Goal", back_populates="scheduled_messages")
 
 
-class Skill(Base):
+class Skill(BaseModel):
     __tablename__ = "skills"
 
-    id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False, unique=True)
     title = Column(String, nullable=False)
     description = Column(Text)
     skill_prompt = Column(Text, nullable=False)
-    metadata = Column(JSONB)
+    skill_metadata = Column(JSONB)
     created_by_type = Column(Enum(SkillCreatedBy), nullable=False)
     created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     usage_count = Column(Integer, nullable=False, default=0)
     is_active = Column(Boolean, nullable=False, default=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column(
-        DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
-    )
 
     # Relationships
     creator = relationship("User", back_populates="skills")
     goal_skills = relationship("GoalSkill", back_populates="skill")
 
 
-class GoalSkill(Base):
+class GoalSkill(BaseModel):
     __tablename__ = "goal_skills"
 
-    id = Column(Integer, primary_key=True)
     goal_id = Column(Integer, ForeignKey("goals.id"), nullable=False, index=True)
     skill_id = Column(Integer, ForeignKey("skills.id"), nullable=False, index=True)
     customizations = Column(JSONB)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
     # Relationships
     goal = relationship("Goal", back_populates="goal_skills")
