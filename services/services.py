@@ -1,7 +1,8 @@
 from typing import Generic, TypeVar, Type, Optional, List, Dict, Any
+from datetime import datetime
 from sqlalchemy import select, update, delete, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
-from models.models import Base, Skill, Message, User
+from models.models import Base, Skill, Message, User, ScheduledMessage, MessageRole, MessageStatus
 from database import AsyncSessionLocal
 
 ModelType = TypeVar("ModelType", bound=Base)
@@ -189,6 +190,95 @@ class UserCRUD(BaseCRUD[User]):
         if not user:
             user = await self.create(db, telegram_id=telegram_id)
         return user
+
+
+class MessageService:
+    """Service for managing messages"""
+
+    def __init__(self, db: AsyncSession):
+        self.db = db
+        self.crud = MessageCRUD(Message)
+
+    async def create_message(
+        self,
+        user_id: int,
+        role: str,
+        content: str,
+        goal_id: Optional[int] = None,
+        telegram_message_id: Optional[int] = None,
+    ) -> Message:
+        """Create a new message"""
+        return await self.crud.create(
+            self.db,
+            user_id=user_id,
+            role=MessageRole[role],
+            content=content,
+            goal_id=goal_id,
+            telegram_message_id=telegram_message_id,
+        )
+
+    async def get_recent_messages(
+        self, user_id: int, limit: int = 20, goal_id: Optional[int] = None
+    ) -> List[Message]:
+        """Get recent messages for a user"""
+        query = (
+            select(Message)
+            .where(Message.user_id == user_id)
+            .order_by(Message.created_at.desc())
+            .limit(limit)
+        )
+        if goal_id:
+            query = query.where(Message.goal_id == goal_id)
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+
+
+class ScheduledMessageService:
+    """Service for managing scheduled messages"""
+
+    def __init__(self, db: AsyncSession):
+        self.db = db
+        self.crud = BaseCRUD(ScheduledMessage)
+
+    async def create_scheduled_message(
+        self,
+        user_id: int,
+        scheduled_for: datetime,
+        message_content: str,
+        goal_id: Optional[int] = None,
+    ) -> ScheduledMessage:
+        """Create a new scheduled message"""
+        return await self.crud.create(
+            self.db,
+            user_id=user_id,
+            goal_id=goal_id,
+            scheduled_for=scheduled_for,
+            message_content=message_content,
+            status=MessageStatus.pending,
+        )
+
+    async def get_pending_messages(self, before_time: datetime) -> List[ScheduledMessage]:
+        """Get pending scheduled messages before a certain time"""
+        query = (
+            select(ScheduledMessage)
+            .where(ScheduledMessage.status == MessageStatus.pending)
+            .where(ScheduledMessage.scheduled_for <= before_time)
+            .order_by(ScheduledMessage.scheduled_for.asc())
+        )
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+
+    async def mark_as_sent(self, scheduled_message_id: int) -> ScheduledMessage:
+        """Mark a scheduled message as sent"""
+        return await self.crud.update(
+            self.db, scheduled_message_id, status=MessageStatus.sent
+        )
+
+    async def mark_as_cancelled(self, scheduled_message_id: int) -> ScheduledMessage:
+        """Mark a scheduled message as cancelled"""
+        return await self.crud.update(
+            self.db, scheduled_message_id, status=MessageStatus.cancelled
+        )
 
 
 if __name__ == "__main__":
