@@ -17,12 +17,24 @@ load_dotenv()
 async def test_reactive(user_id: str, message: str):
     """Test ReactiveAgent with a message."""
     from ai.reactive_agent import ReactiveAgent
+    from database import AsyncSessionLocal
+    from services.services import MessageService
 
     print(f"\n{'='*60}")
     print(f"Testing ReactiveAgent")
     print(f"User ID: {user_id}")
     print(f"Message: {message}")
     print(f"{'='*60}\n")
+
+    # Save user message to database
+    async with AsyncSessionLocal() as db:
+        msg_service = MessageService(db)
+        await msg_service.create_message(
+            user_id=int(user_id),
+            role="user",
+            content=message,
+        )
+        print("✓ User message saved to database\n")
 
     agent = ReactiveAgent(user_id=user_id)
 
@@ -36,8 +48,18 @@ async def test_reactive(user_id: str, message: str):
         elif event["type"] == "tool_call":
             print(f"\n[Tool: {event['content']}]", end="", flush=True)
 
+    # Save assistant message to database
+    async with AsyncSessionLocal() as db:
+        msg_service = MessageService(db)
+        await msg_service.create_message(
+            user_id=int(user_id),
+            role="assistant",
+            content=response_text,
+        )
+
     print(f"\n\n{'='*60}")
     print(f"Complete response length: {len(response_text)} chars")
+    print(f"✓ Assistant message saved to database")
     print(f"{'='*60}\n")
 
 
