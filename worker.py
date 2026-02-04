@@ -8,11 +8,11 @@ from datetime import datetime
 from arq import cron
 from arq.connections import RedisSettings
 from sqlalchemy import select
-from sqlalchemy.orm import selectinload
 
 from database import AsyncSessionLocal
-from models.models import User, Goal, GoalStatus
-from ai.agent_manager import AgentManager
+from models.models import User
+from ai.proactive_agent import ProactiveAgent
+from tasks.scheduled_messages import execute_scheduled_messages
 
 # Configure logging
 logging.basicConfig(
@@ -28,108 +28,95 @@ REDIS_SETTINGS = RedisSettings(host="localhost", port=6379, database=0)
 async def run_agent_checkin_for_user(ctx, user_id: int):
     """
     Run proactive agent check-in for a specific user.
-    
-    This function:
-    1. Gets the user's active goals
-    2. Runs the agent to check on progress
-    3. Sends appropriate nudges/encouragement
-    4. Stores the interaction
-    
+
+    This function uses the ProactiveAgent to:
+    1. Evaluate whether to reach out (based on goals, progress, timing)
+    2. Decide what to say if reaching out
+    3. Execute the decision (send now, schedule, or skip)
+
     Args:
         ctx: Worker context
         user_id: The user's database ID
     """
-    logger.info(f"Starting agent check-in for user {user_id}")
-    
-    async with AsyncSessionLocal() as session:
-        try:
-            # Get user with their active goals
+    logger.info(f"Starting proactive evaluation for user {user_id}")
+
+    try:
+        # Check if user is active
+        async with AsyncSessionLocal() as session:
             result = await session.execute(
-                select(User)
-                .options(selectinload(User.goals))
-                .where(User.id == user_id, User.is_active == True)
+                select(User).where(User.id == user_id, User.is_active)
             )
             user = result.scalar_one_or_none()
-            
+
             if not user:
                 logger.warning(f"User {user_id} not found or inactive")
                 return {"status": "skipped", "reason": "user_not_found_or_inactive"}
-            
-            # Get active goals
-            active_goals = [g for g in user.goals if g.status == GoalStatus.active]
-            
-            if not active_goals:
-                logger.info(f"User {user_id} has no active goals, skipping check-in")
-                return {"status": "skipped", "reason": "no_active_goals"}
-            
-            # Create agent manager for this user
-            agent_manager = AgentManager(user_id=str(user.telegram_id))
-            
-            # Craft proactive check-in prompt
-            prompt = (
-                "It's time for a proactive check-in. Review the user's active goals, "
-                "their recent progress, and decide if you should send them an encouraging "
-                "message, a gentle reminder, or ask how things are going. Be natural and "
-                "context-aware - only reach out if it feels helpful, not just because it's "
-                "scheduled. If there's nothing meaningful to say right now, you can skip."
-            )
-            
-            # Run the agent
-            response = await agent_manager.get_response(prompt=prompt)
-            
-            logger.info(f"Agent check-in completed for user {user_id}")
-            logger.debug(f"Agent response: {response[:200]}...")  # Log first 200 chars
-            
-            return {
-                "status": "completed",
-                "user_id": user_id,
-                "active_goals_count": len(active_goals),
-                "timestamp": datetime.utcnow().isoformat(),
-            }
-            
-        except Exception as e:
-            logger.error(f"Error during agent check-in for user {user_id}: {e}", exc_info=True)
-            return {
-                "status": "failed",
-                "user_id": user_id,
-                "error": str(e),
-            }
+
+        # Create proactive agent
+        proactive_agent = ProactiveAgent()
+
+        # Run evaluation and execution
+        result = await proactive_agent.run(user_id)
+
+        logger.info(
+            f"Proactive check-in completed for user {user_id}: "
+            f"action={result['decision']['action']}, "
+            f"reasoning={result['decision']['reasoning']}"
+        )
+
+        return {
+            "status": "completed",
+            "user_id": user_id,
+            "action": result["decision"]["action"],
+            "reasoning": result["decision"]["reasoning"],
+            "execution_status": result["execution"]["status"],
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+
+    except Exception as e:
+        logger.error(
+            f"Error during proactive check-in for user {user_id}: {e}", exc_info=True
+        )
+        return {
+            "status": "failed",
+            "user_id": user_id,
+            "error": str(e),
+        }
 
 
 async def run_agent_checkins_all_users(ctx):
     """
     Cron job that runs proactive check-ins for all active users.
-    
+
     This is the main scheduled task that runs every 2 hours and:
     1. Fetches all active users
     2. Enqueues individual check-in jobs for each user
     3. Logs the batch operation
     """
     logger.info("🪶 Starting scheduled agent check-ins for all users")
-    
+
     async with AsyncSessionLocal() as session:
         try:
             # Get all active users
-            result = await session.execute(
-                select(User).where(User.is_active == True)
-            )
+            result = await session.execute(select(User).where(User.is_active))
             users = result.scalars().all()
-            
+
             if not users:
                 logger.info("No active users found")
                 return {"status": "completed", "users_processed": 0}
-            
+
             logger.info(f"Found {len(users)} active users")
-            
+
             # Enqueue individual check-in jobs for each user
             from arq import create_pool
+
             redis = await create_pool(REDIS_SETTINGS)
-            
+
             enqueued_count = 0
             for user in users:
                 try:
                     job = await redis.enqueue_job(
-                        'run_agent_checkin_for_user',
+                        "run_agent_checkin_for_user",
                         user.id,
                         _job_id=f"checkin_user_{user.id}_{datetime.utcnow().strftime('%Y%m%d_%H')}",
                     )
@@ -140,18 +127,20 @@ async def run_agent_checkins_all_users(ctx):
                         logger.debug(f"Check-in already enqueued for user {user.id}")
                 except Exception as e:
                     logger.error(f"Failed to enqueue check-in for user {user.id}: {e}")
-            
+
             await redis.close()
-            
-            logger.info(f"✅ Batch check-in completed: {enqueued_count}/{len(users)} jobs enqueued")
-            
+
+            logger.info(
+                f"✅ Batch check-in completed: {enqueued_count}/{len(users)} jobs enqueued"
+            )
+
             return {
                 "status": "completed",
                 "total_users": len(users),
                 "enqueued_count": enqueued_count,
                 "timestamp": datetime.utcnow().isoformat(),
             }
-            
+
         except Exception as e:
             logger.error(f"Error during batch agent check-ins: {e}", exc_info=True)
             return {
@@ -178,7 +167,7 @@ async def shutdown(ctx):
 class WorkerSettings:
     """
     Configuration for the Parth.ai arq worker.
-    
+
     Run with: arq worker.WorkerSettings
     Run with watch: arq worker.WorkerSettings --watch .
     """
@@ -186,16 +175,23 @@ class WorkerSettings:
     # List of functions to register as jobs
     functions = [
         run_agent_checkin_for_user,
+        execute_scheduled_messages,
     ]
 
     # Cron jobs - scheduled tasks
     cron_jobs = [
-        # Run agent check-ins every 2 hours
+        # Run proactive agent evaluations every 2 hours
         # This runs at: 00:00, 02:00, 04:00, 06:00, 08:00, 10:00, 12:00, 14:00, 16:00, 18:00, 20:00, 22:00
         cron(
             run_agent_checkins_all_users,
             hour={0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22},
             minute=0,
+            second=0,
+        ),
+        # Execute scheduled messages every 10 minutes
+        cron(
+            execute_scheduled_messages,
+            minute={0, 10, 20, 30, 40, 50},
             second=0,
         ),
     ]
