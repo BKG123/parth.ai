@@ -4,8 +4,7 @@ import asyncio
 import streamlit as st
 from ai.agent_manager import AgentManager
 from database import AsyncSessionLocal
-from services.services import MessageCRUD, UserCRUD
-from models.models import MessageRole
+from services.services import MessageService, UserCRUD
 
 # Page config
 st.set_page_config(page_title="Parth AI Assistant", page_icon="🪶", layout="wide")
@@ -52,9 +51,6 @@ if "agent_manager" not in st.session_state:
         model="gpt-5-mini",
     )
 
-if "message_crud" not in st.session_state:
-    st.session_state.message_crud = MessageCRUD(model=__import__('models.models', fromlist=['Message']).Message)
-
 if "user_crud" not in st.session_state:
     st.session_state.user_crud = UserCRUD(model=__import__('models.models', fromlist=['User']).User)
 
@@ -86,10 +82,10 @@ if prompt := st.chat_input("Ask me anything..."):
     # Save user message to database
     async def save_user_message():
         async with AsyncSessionLocal() as db:
-            await st.session_state.message_crud.create(
-                db,
+            msg_service = MessageService(db)
+            await msg_service.create_message(
                 user_id=st.session_state.db_user_id,
-                role=MessageRole.user,
+                role="user",
                 content=prompt,
             )
     
@@ -169,10 +165,10 @@ if prompt := st.chat_input("Ask me anything..."):
             # Save assistant message to database
             async def save_assistant_message():
                 async with AsyncSessionLocal() as db:
-                    await st.session_state.message_crud.create(
-                        db,
+                    msg_service = MessageService(db)
+                    await msg_service.create_message(
                         user_id=st.session_state.db_user_id,
-                        role=MessageRole.assistant,
+                        role="assistant",
                         content=response,
                     )
             
