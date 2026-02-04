@@ -13,9 +13,23 @@ Named after Lord Krishna (Parth - another name for Arjuna's chariot driver), thi
 
 ## How It Works
 
-Parth learns what you need for each goal and stores relevant context autonomously. Whether it's tracking weight, building habits, or learning new skills - it adapts its guidance to what matters for *your* journey.
+Parth uses a **two-agent architecture** to provide both reactive and proactive support:
+
+### ReactiveAgent 💬
+Handles your conversations in real-time. When you message Parth, it responds naturally with full context about your goals, progress, and preferences.
+
+### ProactiveAgent 🧠
+Evaluates whether to reach out to you based on your patterns, progress, and timing. Runs every 2 hours to decide if you need encouragement, accountability, or a gentle nudge.
+
+**The Flow:**
+1. You set goals and chat naturally with Parth (ReactiveAgent)
+2. Every 2 hours, ProactiveAgent evaluates your context
+3. It decides: send now, schedule for better time, or skip
+4. Messages are sent at optimal times, respecting your preferences
 
 Like Krishna guiding Arjuna, Parth doesn't make decisions for you - it helps you see clearly and stay on course.
+
+📖 **[Full Architecture Documentation](docs/AGENT_ARCHITECTURE.md)**
 
 ## Access
 
@@ -36,6 +50,48 @@ streamlit run app_streamlit.py
 
 Then open http://localhost:8501 in your browser.
 
+## Development
+
+### Running the Worker
+
+The background worker handles proactive check-ins and scheduled messages:
+
+```bash
+# Start worker (with auto-reload for development)
+arq worker.WorkerSettings --watch .
+
+# Production
+arq worker.WorkerSettings
+```
+
+### Testing Agents
+
+```bash
+# Test reactive agent (conversations)
+python test_agents.py reactive "123456789" "How's my progress?"
+
+# Test proactive agent (evaluations)
+python test_agents.py proactive 1
+```
+
+### Project Structure
+
+```
+parth.ai/
+├── ai/
+│   ├── reactive_agent.py      # Conversational agent
+│   ├── proactive_agent.py     # Evaluation agent
+│   └── llm_tools.py            # Tool definitions
+├── prompts/
+│   ├── agents.py               # Reactive prompt
+│   └── proactive_agent_prompt.py  # Proactive prompt
+├── tasks/
+│   └── scheduled_messages.py   # Execute scheduled messages
+├── worker.py                   # ARQ worker with cron jobs
+└── docs/
+    ├── AGENT_ARCHITECTURE.md   # Full architecture docs
+    └── IMPLEMENTATION_SUMMARY.md  # Implementation details
+```
 
 ---
 
