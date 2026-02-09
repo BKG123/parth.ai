@@ -23,6 +23,7 @@ from ai.llm_tools import (
     get_goal_skill,
     search_skills,
     get_skill,
+    read_reference_doc,
 )
 from prompts.agents import PARTH_AGENT_PROMPT
 from database import AsyncSessionLocal
@@ -47,6 +48,7 @@ TOOLS_ALLOWED_LIST = [
     get_goal_skill,
     search_skills,
     get_skill,
+    read_reference_doc,
 ]
 
 

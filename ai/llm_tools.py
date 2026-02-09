@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 from pydantic import BaseModel, Field
 from agents import function_tool, RunContextWrapper
 from database import AsyncSessionLocal
@@ -502,3 +503,43 @@ async def update_goal_status(
             raise ValueError(f"Goal {goal_id} does not belong to user {user_id}")
 
         await goal_crud.update(db, goal_id, status=GoalStatus(status))
+
+
+# ==================== REFERENCE DOCUMENTATION TOOLS ====================
+
+
+@function_tool
+async def read_reference_doc(
+    wrapper: RunContextWrapper[AgentContext], doc_name: str
+) -> str:
+    """Read reference documentation to guide your behavior.
+    
+    Available documents:
+    - 'skills.md' or 'skills': Complete specification for creating and managing skills
+    
+    Use this tool when you need to:
+    - Create a new skill (MUST read skills.md first)
+    - Understand skill structure and templates
+    - Follow standardized patterns for goal types
+    
+    Returns the full content of the requested document.
+    """
+    # Normalize doc_name
+    doc_map = {
+        "skills": "skills.md",
+        "skills.md": "skills.md",
+    }
+    
+    normalized_name = doc_map.get(doc_name.lower())
+    if not normalized_name:
+        available = ", ".join(doc_map.keys())
+        raise ValueError(f"Unknown document '{doc_name}'. Available: {available}")
+    
+    # Get the project root (assuming this file is in ai/ directory)
+    project_root = Path(__file__).parent.parent
+    doc_path = project_root / "prompts" / normalized_name
+    
+    if not doc_path.exists():
+        raise FileNotFoundError(f"Document not found: {doc_path}")
+    
+    return doc_path.read_text(encoding="utf-8")
