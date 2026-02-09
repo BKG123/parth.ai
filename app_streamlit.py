@@ -1,10 +1,45 @@
 """Streamlit interface for Parth AI Assistant."""
 
 import asyncio
+import os
 import streamlit as st
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from ai.agent_manager import AgentManager
-from database import AsyncSessionLocal
 from services.services import MessageService, UserCRUD
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Build DATABASE_URL once (just a string, no event loop needed)
+_POSTGRES_HOST = os.getenv('POSTGRES_HOST', 'localhost')
+_POSTGRES_PORT = os.getenv('POSTGRES_PORT', '5432')
+_POSTGRES_USER = os.getenv('POSTGRES_USER', 'admin')
+_POSTGRES_PASSWORD = os.getenv('POSTGRES_PASSWORD', 'admin123')
+_POSTGRES_DB = os.getenv('POSTGRES_DB', 'parth_db')
+DATABASE_URL = f"postgresql+asyncpg://{_POSTGRES_USER}:{_POSTGRES_PASSWORD}@{_POSTGRES_HOST}:{_POSTGRES_PORT}/{_POSTGRES_DB}"
+
+
+def _make_session():
+    """Create a fresh engine + session maker each time.
+    
+    This ensures the engine is created inside the same event loop
+    where it will be used, avoiding the 'attached to a different loop' error.
+    """
+    engine = create_async_engine(
+        DATABASE_URL,
+        echo=False,
+        pool_pre_ping=False,  # Disable pre-ping to avoid loop issues
+        pool_size=5,
+        max_overflow=10,
+    )
+    return async_sessionmaker(
+        engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+        autocommit=False,
+        autoflush=False,
+    )
+
 
 # Page config
 st.set_page_config(page_title="Parth AI Assistant", page_icon="🪶", layout="wide")
@@ -55,12 +90,12 @@ if "user_crud" not in st.session_state:
     st.session_state.user_crud = UserCRUD(model=__import__('models.models', fromlist=['User']).User)
 
 if "db_user_id" not in st.session_state:
-    # Get or create user in database (telegram_id=1 for Streamlit testing)
     async def init_user():
-        async with AsyncSessionLocal() as db:
+        SessionLocal = _make_session()
+        async with SessionLocal() as db:
             user = await st.session_state.user_crud.get_or_create_by_telegram_id(db, telegram_id=1)
             return user.id
-    
+
     st.session_state.db_user_id = asyncio.run(init_user())
 
 # Header
@@ -78,17 +113,18 @@ if prompt := st.chat_input("Ask me anything..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
-    
+
     # Save user message to database
     async def save_user_message():
-        async with AsyncSessionLocal() as db:
+        SessionLocal = _make_session()
+        async with SessionLocal() as db:
             msg_service = MessageService(db)
             await msg_service.create_message(
                 user_id=st.session_state.db_user_id,
                 role="user",
                 content=prompt,
             )
-    
+
     asyncio.run(save_user_message())
 
     # Get agent response with streaming
@@ -161,17 +197,18 @@ if prompt := st.chat_input("Ask me anything..."):
         try:
             response = asyncio.run(stream_and_display())
             st.session_state.messages.append({"role": "assistant", "content": response})
-            
+
             # Save assistant message to database
             async def save_assistant_message():
-                async with AsyncSessionLocal() as db:
+                SessionLocal = _make_session()
+                async with SessionLocal() as db:
                     msg_service = MessageService(db)
                     await msg_service.create_message(
                         user_id=st.session_state.db_user_id,
                         role="assistant",
                         content=response,
                     )
-            
+
             asyncio.run(save_assistant_message())
         except Exception as e:
             error_msg = f"Error: {str(e)}"
