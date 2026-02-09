@@ -2,7 +2,7 @@
 
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Dict, Any
 
 from openai import AsyncOpenAI
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class ProactiveAgent:
     """Evaluates whether Parth should proactively reach out to the user."""
 
-    def __init__(self, model: str = "gpt-5-mini"):
+    def __init__(self, model: str = "gpt-5.2"):
         self.model = model
         self.client = AsyncOpenAI()
 
@@ -119,9 +119,13 @@ class ProactiveAgent:
                 "active_goals": active_goals,
                 "active_goals_count": len(active_goals),
                 "recent_messages": recent_messages,
-                "last_message_at": last_message_time.isoformat() if last_message_time else None,
+                "last_message_at": last_message_time.isoformat()
+                if last_message_time
+                else None,
                 "last_assistant_message_at": (
-                    last_assistant_message.isoformat() if last_assistant_message else None
+                    last_assistant_message.isoformat()
+                    if last_assistant_message
+                    else None
                 ),
                 "hours_since_last_message": (
                     (datetime.utcnow() - last_message_time).total_seconds() / 3600
@@ -199,12 +203,17 @@ class ProactiveAgent:
                     "reasoning": "Invalid decision structure from LLM",
                 }
 
-            logger.info(f"Decision for user {user_id}: {decision['action']} - {decision['reasoning']}")
+            logger.info(
+                f"Decision for user {user_id}: {decision['action']} - {decision['reasoning']}"
+            )
 
             return decision
 
         except Exception as e:
-            logger.error(f"Error evaluating proactive outreach for user {user_id}: {e}", exc_info=True)
+            logger.error(
+                f"Error evaluating proactive outreach for user {user_id}: {e}",
+                exc_info=True,
+            )
             return {
                 "action": "skip",
                 "message": None,
@@ -213,7 +222,9 @@ class ProactiveAgent:
                 "reasoning": f"Error during evaluation: {str(e)}",
             }
 
-    async def execute_decision(self, user_id: int, decision: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute_decision(
+        self, user_id: int, decision: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Execute the decided action.
 
         Args:
@@ -281,7 +292,9 @@ class ProactiveAgent:
                 return {"status": "failed", "reason": f"unknown_action: {action}"}
 
         except Exception as e:
-            logger.error(f"Error executing decision for user {user_id}: {e}", exc_info=True)
+            logger.error(
+                f"Error executing decision for user {user_id}: {e}", exc_info=True
+            )
             return {"status": "failed", "error": str(e)}
 
     async def run(self, user_id: int) -> Dict[str, Any]:

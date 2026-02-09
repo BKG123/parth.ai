@@ -162,8 +162,6 @@ parth.ai/
 ├── app_streamlit.py            # Streamlit web interface
 ├── database.py                 # Database connection
 ├── main.py                     # Main entry point
-└── local_dir/                  # Local documentation
-    └── prd.md                  # Product requirements
 ```
 
 ## Architecture

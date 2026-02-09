@@ -60,7 +60,7 @@ class ReactiveAgent:
         user_id: str,
         name: str = "Parth AI",
         instructions: str = None,
-        model: str = "gpt-5-mini",
+        model: str = "gpt-5.2",
     ) -> None:
         self.user_id = user_id
         self.agent = Agent(
@@ -135,10 +135,13 @@ class ReactiveAgent:
         return result.final_output
 
     async def send_proactive_message(
-        self, content: str, goal_id: int | None = None, telegram_chat_id: int | None = None
+        self,
+        content: str,
+        goal_id: int | None = None,
+        telegram_chat_id: int | None = None,
     ) -> dict:
         """Send a proactive message to the user.
-        
+
         This is called by ProactiveAgent when it decides to send a message.
         Routes through ReactiveAgent for consistency.
 
@@ -167,7 +170,9 @@ class ReactiveAgent:
                 if telegram_chat_id:
                     # TODO: Import and use telegram bot to send message
                     # await telegram_bot.send_message(chat_id=telegram_chat_id, text=content)
-                    logger.info(f"Would send Telegram message to {telegram_chat_id}: {content[:50]}...")
+                    logger.info(
+                        f"Would send Telegram message to {telegram_chat_id}: {content[:50]}..."
+                    )
                     pass
 
                 return {
