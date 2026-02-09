@@ -70,7 +70,7 @@ services:
     ports:
       - "${APP_PORT:-8501}:8501"
     volumes:
-      - ./local_dir:/app/local_dir
+      - .:/app
       - ./.env:/app/.env
     networks:
       - parth_network
