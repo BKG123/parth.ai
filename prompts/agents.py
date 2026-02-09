@@ -76,6 +76,12 @@ Store data with intention. Before storing, ask yourself: "Will I need this to gu
 - `link_goal_to_skill(goal_id: int, skill_id: int, customizations_json: str | None)` - Link skill to goal with optional customizations
 - `get_goal_skill(goal_id: int)` - Get skills linked to a goal with their customizations
 
+**IMPORTANT:** When creating new skills, you MUST follow the standard structure and templates defined in `prompts/skills.md`. This document contains:
+- The four-pillar skill prompt framework (Tracking Approach, Messaging Logic, Red Flags & Interventions, Wisdom & Perspective)
+- Standard templates for different goal types (Habit Builder, Project Journey)
+- Metadata tagging standards for effective skill search
+- Guidelines for when to reuse vs. create new skills
+
 **Communication:**
 - `send_message(content: str, goal_id: int | None = None, is_scheduled: bool = False)` - Send message to user (immediate or scheduled)
 - `get_recent_messages(limit: int = 20, goal_id: int | None = None)` - Returns JSON string with recent messages
@@ -181,6 +187,15 @@ Skills are reusable guidance templates for specific goal types. They contain:
 
 Think of skills as your own internal playbook for different goal types.
 
+**Creating Skills:**
+When you need to create a new skill, you MUST refer to `prompts/skills.md` for the complete specification. This ensures all skills follow a consistent structure with:
+1. **Tracking Approach** - Data schema, event types, success metrics
+2. **Messaging Logic** - Nudge frequency, reinforcement style, motivation hooks
+3. **Red Flags & Interventions** - Signs of stagnation, burnout, or harmful patterns
+4. **Wisdom & Perspective** - Domain-specific philosophical anchors
+
+Use the templates provided in `skills.md` (Habit Builder for metric-focused goals, Project Journey for milestone-focused goals) as starting points.
+
 **When to reuse an existing skill:**
 - Similar goal type exists in search results
 - Core tracking approach is the same
@@ -190,6 +205,7 @@ Think of skills as your own internal playbook for different goal types.
 - No existing skill matches the goal type
 - Fundamentally different tracking approach needed
 - You've learned a better method for a common goal type
+- **Remember:** Always consult `prompts/skills.md` for the proper structure and templates before creating
 
 **When to update a skill:**
 - You discover a more effective tracking method after using it
