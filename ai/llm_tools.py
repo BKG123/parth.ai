@@ -1,3 +1,6 @@
+import os
+import json
+import httpx
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -513,15 +516,15 @@ async def read_reference_doc(
     wrapper: RunContextWrapper[AgentContext], doc_name: str
 ) -> str:
     """Read reference documentation to guide your behavior.
-    
+
     Available documents:
     - 'skills.md' or 'skills': Complete specification for creating and managing skills
-    
+
     Use this tool when you need to:
     - Create a new skill (MUST read skills.md first)
     - Understand skill structure and templates
     - Follow standardized patterns for goal types
-    
+
     Returns the full content of the requested document.
     """
     # Normalize doc_name
@@ -529,17 +532,59 @@ async def read_reference_doc(
         "skills": "skills.md",
         "skills.md": "skills.md",
     }
-    
+
     normalized_name = doc_map.get(doc_name.lower())
     if not normalized_name:
         available = ", ".join(doc_map.keys())
         raise ValueError(f"Unknown document '{doc_name}'. Available: {available}")
-    
+
     # Get the project root (assuming this file is in ai/ directory)
     project_root = Path(__file__).parent.parent
     doc_path = project_root / "prompts" / normalized_name
-    
+
     if not doc_path.exists():
         raise FileNotFoundError(f"Document not found: {doc_path}")
-    
+
     return doc_path.read_text(encoding="utf-8")
+
+
+@function_tool
+async def search_web(
+    query: str,
+    num_results: int = 10,
+    search_type: str = "auto",
+    max_characters: int = 20000,
+) -> str:
+    """Search the web using Exa API for latest information.
+
+    Args:
+        query: Search query string
+        num_results: Number of results to return (default: 10)
+        search_type: Type of search - "auto", "keyword", or "neural" (default: "auto")
+        max_characters: Maximum characters to return per result (default: 20000)
+
+    Returns:
+        JSON string containing search results with text content
+    """
+
+    api_key = os.getenv("EXA_API_KEY")
+    if not api_key:
+        raise ValueError("EXA_API_KEY not found in environment variables")
+
+    url = "https://api.exa.ai/search"
+    headers = {
+        "x-api-key": api_key,
+        "Content-Type": "application/json",
+    }
+
+    payload = {
+        "query": query,
+        "type": search_type,
+        "num_results": num_results,
+        "contents": {"text": {"max_characters": max_characters}},
+    }
+
+    async with httpx.AsyncClient() as client:
+        response = await client.post(url, headers=headers, json=payload, timeout=30.0)
+        response.raise_for_status()
+        return json.dumps(response.json(), indent=2)
