@@ -79,12 +79,35 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    environment:
+      - REDIS_HOST=redis
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: parth_worker
+    restart: unless-stopped
+    command: ["arq", "worker.WorkerSettings"]
+    volumes:
+      - .:/app
+      - ./.env:/app/.env
+    networks:
+      - parth_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - REDIS_HOST=redis
+      - POSTGRES_HOST=postgres
 
 volumes:
   postgres_data:
