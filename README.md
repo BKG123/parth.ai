@@ -60,9 +60,9 @@ uv pip install -e .
 cp .env.example .env
 
 # Edit .env with your settings:
-# - DATABASE_URL (PostgreSQL connection)
-# - OPENAI_API_KEY (for Claude/OpenAI models)
-# - REDIS_HOST and REDIS_PORT
+# - POSTGRES_* (PostgreSQL connection)
+# - OPENAI_API_KEY (for AI models)
+# - REDIS_HOST (use 'redis' for Docker, 'localhost' for local)
 ```
 
 3. **Initialize database:**
@@ -90,11 +90,20 @@ source .venv/bin/activate
 
 Then open http://localhost:8501 in your browser.
 
+### Docker
+
+```bash
+# Start all services (postgres, redis, app, worker)
+docker compose up -d
+
+# With Docker, worker runs automatically - no separate terminal needed
+```
+
 ## Development
 
 ### Running the Worker
 
-The background worker handles proactive check-ins and scheduled messages using ARQ:
+The background worker handles proactive check-ins using ARQ (runs every 2 hours for users with active goals):
 
 ```bash
 # Development mode (auto-reload on code changes)
@@ -103,13 +112,6 @@ arq worker.WorkerSettings --watch .
 # Production mode
 arq worker.WorkerSettings
 ```
-
-**Worker Features:**
-- Proactive agent evaluations every 2 hours
-- Scheduled message execution every 10 minutes
-- Parallel job processing (max 10 concurrent)
-- Automatic retries (up to 3 attempts)
-- Health checks every 5 minutes
 
 ### Testing
 
@@ -155,7 +157,7 @@ parth.ai/
 ├── services/                   # Business logic
 │   └── services.py             # Database operations
 ├── tasks/                      # Background tasks
-│   └── scheduled_messages.py   # Message execution
+│   └── scheduled_messages.py   # Scheduled message execution
 ├── alembic/                    # Database migrations
 ├── tests/                      # Test files
 ├── worker.py                   # ARQ worker configuration
@@ -204,22 +206,21 @@ No hardcoded rules - just context-based intelligence.
 
 ```bash
 # Build and start all services
-docker-compose up -d
+docker compose up -d
 
 # View logs
-docker-compose logs -f
+docker compose logs -f
 
 # Stop services
-docker-compose down
+docker compose down
 ```
 
 ### Production Checklist
 
-- [ ] Set strong `DATABASE_URL` with production credentials
-- [ ] Configure `REDIS_HOST` and `REDIS_PORT`
+- [ ] Set strong credentials in `.env` (POSTGRES_*, OPENAI_API_KEY)
+- [ ] Configure `REDIS_HOST` (use `redis` in Docker)
 - [ ] Set `OPENAI_API_KEY` for AI models
 - [ ] Run database migrations: `alembic upgrade head`
-- [ ] Start worker with supervisor/systemd
 - [ ] Configure monitoring and logging
 - [ ] Set up backup strategy for PostgreSQL
 - [ ] Configure firewall rules

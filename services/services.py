@@ -189,8 +189,6 @@ class UserCRUD(BaseCRUD[User]):
         user = await self.get_by(db, telegram_id=telegram_id)
         if not user:
             user = await self.create(db, telegram_id=telegram_id)
-            from tasks.queue import enqueue_proactive_checkin
-            await enqueue_proactive_checkin(user.id)
         return user
 
 

@@ -485,10 +485,6 @@ async def create_goal(
         goal = await goal_crud.create(
             db, user_id=user_id, title=title, status=GoalStatus(status)
         )
-
-        from tasks.queue import enqueue_proactive_checkin
-        await enqueue_proactive_checkin(user_id)
-
         return goal.id
 
 

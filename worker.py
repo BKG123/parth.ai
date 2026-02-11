@@ -5,7 +5,6 @@ Background job processing for proactive agent check-ins
 
 import logging
 import os
-from datetime import timedelta
 
 from arq import cron, create_pool
 from arq.connections import RedisSettings
@@ -24,9 +23,6 @@ logger = logging.getLogger(__name__)
 
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 REDIS_SETTINGS = RedisSettings(host=REDIS_HOST, port=6379, database=0)
-
-# Defer proactive check-in by 2 hours when enqueued on user/goal creation
-PROACTIVE_CHECKIN_DEFER = timedelta(hours=2)
 
 
 async def run_proactive_checkin(ctx: dict, user_id: int) -> dict:
