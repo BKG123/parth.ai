@@ -69,8 +69,8 @@ class WorkerSettings:
     cron_jobs = [
         cron(
             run_all_proactive_checkins,
-            hour={0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22},
-            minute=0,
+            hour=0,
+            minute={0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22},
         )
     ]
     redis_settings = REDIS_SETTINGS

@@ -6,7 +6,7 @@ from ai.reactive_agent import ReactiveAgent
 class AgentManager:
     """Wrapper for managing reactive agent interactions."""
 
-    def __init__(self, user_id: str, name: str = "Parth AI", model: str = "gpt-5-mini"):
+    def __init__(self, user_id: str, name: str = "Parth AI", model: str = "gpt-5.2"):
         self.user_id = user_id
         self.reactive_agent = ReactiveAgent(user_id=user_id, name=name, model=model)
 

@@ -4,6 +4,7 @@ import asyncio
 import os
 import streamlit as st
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.pool import NullPool
 from ai.agent_manager import AgentManager
 from services.services import MessageService, UserCRUD
 from dotenv import load_dotenv
@@ -11,26 +12,25 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Build DATABASE_URL once (just a string, no event loop needed)
-_POSTGRES_HOST = os.getenv('POSTGRES_HOST', 'localhost')
-_POSTGRES_PORT = os.getenv('POSTGRES_PORT', '5432')
-_POSTGRES_USER = os.getenv('POSTGRES_USER', 'admin')
-_POSTGRES_PASSWORD = os.getenv('POSTGRES_PASSWORD', 'admin123')
-_POSTGRES_DB = os.getenv('POSTGRES_DB', 'parth_db')
+_POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
+_POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
+_POSTGRES_USER = os.getenv("POSTGRES_USER", "admin")
+_POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "admin123")
+_POSTGRES_DB = os.getenv("POSTGRES_DB", "parth_db")
 DATABASE_URL = f"postgresql+asyncpg://{_POSTGRES_USER}:{_POSTGRES_PASSWORD}@{_POSTGRES_HOST}:{_POSTGRES_PORT}/{_POSTGRES_DB}"
 
 
 def _make_session():
     """Create a fresh engine + session maker each time.
-    
+
     This ensures the engine is created inside the same event loop
     where it will be used, avoiding the 'attached to a different loop' error.
     """
     engine = create_async_engine(
         DATABASE_URL,
         echo=False,
-        pool_pre_ping=False,  # Disable pre-ping to avoid loop issues
-        pool_size=5,
-        max_overflow=10,
+        pool_pre_ping=False,
+        poolclass=NullPool,  # No pooling - avoids "Event loop is closed" on cleanup
     )
     return async_sessionmaker(
         engine,
@@ -83,17 +83,22 @@ if "agent_manager" not in st.session_state:
     st.session_state.agent_manager = AgentManager(
         user_id="1",
         name="Parth AI",
-        model="gpt-5-mini",
+        model="gpt-5.2",
     )
 
 if "user_crud" not in st.session_state:
-    st.session_state.user_crud = UserCRUD(model=__import__('models.models', fromlist=['User']).User)
+    st.session_state.user_crud = UserCRUD(
+        model=__import__("models.models", fromlist=["User"]).User
+    )
 
 if "db_user_id" not in st.session_state:
+
     async def init_user():
         SessionLocal = _make_session()
         async with SessionLocal() as db:
-            user = await st.session_state.user_crud.get_or_create_by_telegram_id(db, telegram_id=1)
+            user = await st.session_state.user_crud.get_or_create_by_telegram_id(
+                db, telegram_id=1
+            )
             return user.id
 
     st.session_state.db_user_id = asyncio.run(init_user())
