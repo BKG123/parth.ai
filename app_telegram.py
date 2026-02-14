@@ -1,7 +1,9 @@
 """Telegram bot interface for Parth AI Assistant."""
 
+import html
 import logging
 import os
+import re
 import time
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.pool import NullPool
@@ -88,7 +90,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         user, history = await get_user_and_history(telegram_id)
     except Exception as e:
         logger.exception("DB error getting user/history: %s", e)
-        await update.message.reply_text("Sorry, I couldn't load your data. Please try again.")
+        await update.message.reply_text(
+            "Sorry, I couldn't load your data. Please try again."
+        )
         return
 
     # Save user message
@@ -132,14 +136,20 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             if now - last_edit >= EDIT_INTERVAL or event["type"] == "tool_call":
                 display = _build_display(full_response, tool_calls, active_tools)
                 try:
-                    await sent_msg.edit_text(display or "🪶 Thinking...")
+                    await sent_msg.edit_text(
+                        display or "🪶 Thinking...",
+                        parse_mode="HTML",
+                    )
                     last_edit = now
                 except Exception:
                     pass  # Same content or rate limit
 
         # Final message
         display = _build_display(full_response, tool_calls, [])
-        await sent_msg.edit_text(display or "No response generated.")
+        await sent_msg.edit_text(
+            display or "No response generated.",
+            parse_mode="HTML",
+        )
 
         # Save assistant message
         SessionLocal2 = _make_session()
@@ -154,17 +164,31 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     except Exception as e:
         logger.exception("Agent error: %s", e)
-        await sent_msg.edit_text(f"Error: {str(e)}")
+        await sent_msg.edit_text(
+            f"Error: {html.escape(str(e))}",
+            parse_mode="HTML",
+        )
+
+
+def _md_to_html(text: str) -> str:
+    """Convert AI markdown to Telegram HTML. Escapes special chars, renders **bold**, *italic*, `code`."""
+    if not text:
+        return ""
+    escaped = html.escape(text)
+    escaped = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", escaped)  # bold first
+    escaped = re.sub(r"\*([^*]+)\*", r"<i>\1</i>", escaped)  # italic
+    escaped = re.sub(r"`([^`]+)`", r"<code>\1</code>", escaped)
+    return escaped
 
 
 def _build_display(response: str, tool_calls: list, active_tools: list) -> str:
-    """Build display text for Telegram (plain text, max 4096 chars)."""
+    """Build display text for Telegram (HTML formatted, max 4096 chars)."""
     parts = []
     if tool_calls:
         parts.append("🔧 Tools: " + ", ".join(tool_calls) + "\n")
     if active_tools:
         parts.append("⚙️ Running: " + ", ".join(active_tools) + "\n")
-    parts.append(response or "")
+    parts.append(_md_to_html(response or ""))
     text = "\n".join(parts)
     return text[:4090] + "..." if len(text) > 4096 else text
 
