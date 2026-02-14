@@ -3,8 +3,9 @@
 import html
 import logging
 import os
-import re
 import time
+
+from telegram_client import md_to_html
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.pool import NullPool
 from telegram import Update
@@ -170,17 +171,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         )
 
 
-def _md_to_html(text: str) -> str:
-    """Convert AI markdown to Telegram HTML. Escapes special chars, renders **bold**, *italic*, `code`."""
-    if not text:
-        return ""
-    escaped = html.escape(text)
-    escaped = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", escaped)  # bold first
-    escaped = re.sub(r"\*([^*]+)\*", r"<i>\1</i>", escaped)  # italic
-    escaped = re.sub(r"`([^`]+)`", r"<code>\1</code>", escaped)
-    return escaped
-
-
 def _build_display(response: str, tool_calls: list, active_tools: list) -> str:
     """Build display text for Telegram (HTML formatted, max 4096 chars)."""
     parts = []
@@ -188,7 +178,7 @@ def _build_display(response: str, tool_calls: list, active_tools: list) -> str:
         parts.append("🔧 Tools: " + ", ".join(tool_calls) + "\n")
     if active_tools:
         parts.append("⚙️ Running: " + ", ".join(active_tools) + "\n")
-    parts.append(_md_to_html(response or ""))
+    parts.append(md_to_html(response or ""))
     text = "\n".join(parts)
     return text[:4090] + "..." if len(text) > 4096 else text
 

@@ -170,12 +170,18 @@ class ReactiveAgent:
 
                 # Send via Telegram if chat_id provided
                 if telegram_chat_id:
-                    # TODO: Import and use telegram bot to send message
-                    # await telegram_bot.send_message(chat_id=telegram_chat_id, text=content)
-                    logger.info(
-                        f"Would send Telegram message to {telegram_chat_id}: {content[:50]}..."
+                    from telegram_client import send_telegram_message
+
+                    result = await send_telegram_message(
+                        chat_id=telegram_chat_id,
+                        text=content,
+                        parse_mode="HTML",
                     )
-                    pass
+                    if not result:
+                        logger.warning(
+                            f"Failed to send Telegram message to {telegram_chat_id}"
+                        )
+                        return {"status": "failed", "error": "telegram_send_failed"}
 
                 return {
                     "status": "sent",

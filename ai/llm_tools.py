@@ -239,7 +239,16 @@ async def send_message(
                 role=MessageRole.assistant,
                 content=content,
             )
-            # TODO: Actually send via Telegram API
+            # Send via Telegram if user has telegram_id
+            user = await user_crud.get(db, user_id)
+            if user and user.telegram_id:
+                from telegram_client import send_telegram_message
+
+                await send_telegram_message(
+                    chat_id=user.telegram_id,
+                    text=content,
+                    parse_mode="HTML",
+                )
 
 
 @function_tool

@@ -102,6 +102,7 @@ services:
     environment:
       - REDIS_HOST=redis
       - POSTGRES_HOST=postgres
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
 
 volumes:
   postgres_data:
