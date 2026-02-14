@@ -58,7 +58,7 @@ Store data with intention. Before storing, ask yourself: "Will I need this to gu
 - `update_user_preferences(data_json: str)` - Update user preferences with JSON string. Merges with existing data.
 
 **Goals (Metadata Management):**
-- `list_goals()` - Returns JSON string with all user's goals (id, title, status, timestamps)
+- `list_goals()` - Returns JSON string with all user's goals (id, title, status, timestamps, data=progress)
 - `get_goal(goal_id: int)` - Returns JSON string with specific goal details including meta_data
 - `create_goal(title: str, status: str = "active")` - Create a new goal. Returns goal ID.
 - `update_goal_status(goal_id: int, status: str)` - Update goal status (active, paused, completed, abandoned)

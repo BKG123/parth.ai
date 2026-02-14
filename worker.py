@@ -27,6 +27,7 @@ REDIS_SETTINGS = RedisSettings(host=REDIS_HOST, port=6379, database=0)
 
 async def run_proactive_checkin(ctx: dict, user_id: int) -> dict:
     """Run proactive evaluation for a single user. Enqueued per-user or by cron."""
+    logger.info(f"Running proactive check-in for user {user_id}")
     agent = ProactiveAgent()
     return await agent.run(user_id)
 
@@ -46,6 +47,7 @@ async def run_all_proactive_checkins(ctx: dict) -> None:
             .distinct()
         )
         user_ids = [r[0] for r in result.fetchall()]
+        logger.info(f"Found {len(user_ids)} users with active goals")
 
     for uid in user_ids:
         await redis.enqueue_job("run_proactive_checkin", uid)
@@ -67,11 +69,8 @@ async def shutdown(ctx: dict) -> None:
 class WorkerSettings:
     functions = [run_proactive_checkin]
     cron_jobs = [
-        cron(
-            run_all_proactive_checkins,
-            hour=0,
-            minute={0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22},
-        )
+        # Every 2 min for testing (prod: hour=set(range(0, 24, 2)), minute=0)
+        cron(run_all_proactive_checkins, minute=set(range(0, 60, 2))),
     ]
     redis_settings = REDIS_SETTINGS
     on_startup = startup

@@ -246,8 +246,8 @@ class ProactiveAgent:
                     if not user:
                         return {"status": "failed", "reason": "user_not_found"}
 
-                    # Use ReactiveAgent to send the message
-                    reactive_agent = ReactiveAgent(user_id=str(user.telegram_id))
+                    # Use ReactiveAgent with db user_id (messages FK uses users.id)
+                    reactive_agent = ReactiveAgent(user_id=str(user.id))
                     result = await reactive_agent.send_proactive_message(
                         content=decision["message"],
                         goal_id=decision.get("goal_id"),

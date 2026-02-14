@@ -68,23 +68,24 @@ async def update_user_preferences(
 @function_tool
 # Goals metadata (read-only)
 async def list_goals(wrapper: RunContextWrapper[AgentContext]) -> str:
-    """List all goals for the current user. Returns JSON string."""
+    """List all goals for the current user with their progress data. Returns JSON string."""
     import json
 
     user_id = int(wrapper.context.user_id)
 
     async with AsyncSessionLocal() as db:
         goals = await goal_crud.get_all(db, user_id=user_id)
-        result = [
-            {
+        result = []
+        for goal in goals:
+            goal_data = await goal_data_crud.get_by(db, goal_id=goal.id)
+            result.append({
                 "id": goal.id,
                 "title": goal.title,
                 "status": goal.status.value,
                 "created_at": goal.created_at.isoformat(),
                 "updated_at": goal.updated_at.isoformat(),
-            }
-            for goal in goals
-        ]
+                "data": goal_data.agent_data if goal_data and goal_data.agent_data else {},
+            })
         return json.dumps(result)
 
 

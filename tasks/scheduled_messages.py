@@ -61,8 +61,8 @@ async def execute_scheduled_messages(ctx):
                         failed_count += 1
                         continue
 
-                    # Use ReactiveAgent to send the message
-                    reactive_agent = ReactiveAgent(user_id=str(user.telegram_id))
+                    # Use ReactiveAgent with db user_id (messages FK uses users.id)
+                    reactive_agent = ReactiveAgent(user_id=str(user.id))
                     result = await reactive_agent.send_proactive_message(
                         content=scheduled_msg.message_content,
                         goal_id=scheduled_msg.goal_id,
