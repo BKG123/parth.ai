@@ -60,6 +60,7 @@ uv pip install -e .
 cp .env.example .env
 
 # Edit .env with your settings:
+# - TELEGRAM_BOT_TOKEN (get from @BotFather on Telegram)
 # - POSTGRES_* (PostgreSQL connection)
 # - OPENAI_API_KEY (for AI models)
 # - REDIS_HOST (use 'redis' for Docker, 'localhost' for local)
@@ -82,22 +83,33 @@ redis-server
 source .venv/bin/activate
 arq worker.WorkerSettings --watch .
 
-# Terminal 3: Start Streamlit interface
+# Terminal 3: Start Telegram bot
 source .venv/bin/activate
-./run_streamlit.sh
-# Or: streamlit run app_streamlit.py
+python main.py
 ```
 
-Then open http://localhost:8501 in your browser.
+Then message your bot on Telegram.
 
 ### Docker
 
 ```bash
 # Start all services (postgres, redis, app, worker)
+# Requires TELEGRAM_BOT_TOKEN in .env
 docker compose up -d
 
 # With Docker, worker runs automatically - no separate terminal needed
 ```
+
+### Running Streamlit (optional)
+
+For local development or testing in a browser:
+
+```bash
+source .venv/bin/activate
+streamlit run app_streamlit.py
+```
+
+Then open http://localhost:8501 in your browser.
 
 ## Development
 
@@ -161,9 +173,10 @@ parth.ai/
 ├── alembic/                    # Database migrations
 ├── tests/                      # Test files
 ├── worker.py                   # ARQ worker configuration
-├── app_streamlit.py            # Streamlit web interface
+├── app_telegram.py             # Telegram bot (primary interface)
+├── app_streamlit.py            # Streamlit web interface (optional)
 ├── database.py                 # Database connection
-├── main.py                     # Main entry point
+├── main.py                     # Main entry point (runs Telegram bot)
 ```
 
 ## Architecture
@@ -197,7 +210,7 @@ No hardcoded rules - just context-based intelligence.
 - **Database**: PostgreSQL 15+ (JSONB, full-text search)
 - **Queue**: Redis + ARQ (async job processing)
 - **AI**: OpenAI Agents SDK (Claude Sonnet 4)
-- **Interface**: Streamlit (development/testing)
+- **Interface**: Telegram (primary), Streamlit (optional dev/testing)
 - **Deployment**: Docker + docker-compose
 
 ## Deployment
@@ -205,7 +218,8 @@ No hardcoded rules - just context-based intelligence.
 ### Docker
 
 ```bash
-# Build and start all services
+# Build and start all services (Telegram bot, worker, postgres, redis)
+# Ensure TELEGRAM_BOT_TOKEN is set in .env
 docker compose up -d
 
 # View logs
@@ -218,6 +232,7 @@ docker compose down
 ### Production Checklist
 
 - [ ] Set strong credentials in `.env` (POSTGRES_*, OPENAI_API_KEY)
+- [ ] Set `TELEGRAM_BOT_TOKEN` (create bot via @BotFather)
 - [ ] Configure `REDIS_HOST` (use `redis` in Docker)
 - [ ] Set `OPENAI_API_KEY` for AI models
 - [ ] Run database migrations: `alembic upgrade head`
@@ -227,11 +242,11 @@ docker compose down
 
 ## Access
 
-### Telegram Bot
-Start chatting via Telegram: `@parth_ai_bot` *(coming soon)*
+### Telegram Bot (primary)
+Create a bot via [@BotFather](https://t.me/BotFather), add `TELEGRAM_BOT_TOKEN` to `.env`, and run `python main.py`. Message your bot to start chatting.
 
-### Web Interface
-For development and testing, use the Streamlit interface at http://localhost:8501
+### Streamlit (optional)
+For browser-based testing: `streamlit run app_streamlit.py` → http://localhost:8501
 
 ## Contributing
 
