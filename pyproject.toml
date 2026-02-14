@@ -13,6 +13,7 @@ dependencies = [
     "asyncpg==0.29.0",
     "greenlet==3.0.0",
     "streamlit==1.39.0",
+    "python-telegram-bot==22.6",
     "arq==0.27.0",
     "httpx==0.28.1",
     "watchfiles==1.1.1",
